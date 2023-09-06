@@ -23,7 +23,7 @@ def func(x: Array) -> Array:
 X1 = GF([[1, 2, 3], [1, 2, 3], [1, 2, 3]])
 X2 = GF([[4, 5, 6], [4, 5, 6], [4, 5, 6]])
 
-Workers = [Worker(computation=func) for i in range(2)]
+Workers = [Worker(computation=func) for i in range(3)]
 
 mst = Master(0, 0, [X1, X2], Workers, func)
 

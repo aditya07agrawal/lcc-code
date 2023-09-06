@@ -7,13 +7,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import reduce
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, cast
 
 import galois
 import numpy as np
 
+from galois import FieldArray
+
 
 if TYPE_CHECKING:
+    from typing import Callable, Iterable
+
     Array = np.ndarray
 
 GF = galois.GF(31)
@@ -39,53 +43,47 @@ class Master:
     workers: list[Worker]
     computation: Callable
 
-    def run(self):
-        encoded_data = self.encode()
-        print("Encoded data:")
-        print(encoded_data := list(encoded_data))
+    @property
+    def K(self):
+        return len(self.data)
 
+    @property
+    def N(self):
+        return len(self.workers)
+
+    def run(self) -> list[FieldArray]:
         result = [
-            worker.compute(data) for worker, data in zip(self.workers, encoded_data)
+            worker.compute(data) for worker, data in zip(self.workers, self.encode())
         ]
-        print("Result: ")
-        print(result)
-
-        print("Decoded result: ")
         return list(self.decode(result))
 
     def encode(self) -> map[Array]:
-        lag_poly = compute_lagrange(self.data)
-        return map(lag_poly, range(len(self.data), len(self.workers) + len(self.data)))
+        lag_poly = compute_lagrange(self.data, encode_by=range(self.K))
+        return map(lag_poly, range(self.K, self.K + self.N))
 
-    def decode(self, computed_data: list[Array]) -> map[Array]:
-        lag_poly = compute_lagrange(computed_data, encode_by=[2, 3])
-        return map(lag_poly, range(0, len(self.data)))
+    def decode(self, data: list[Array]) -> map[FieldArray]:
+        lag_poly = compute_lagrange(data, encode_by=range(self.K, self.K + self.N))
+        return map(lag_poly, range(self.K))
 
 
 def compute_lagrange(
-    matrices: list[Array], encode_by: list[int] | None = None
-) -> Callable[[int], Array]:
-    def _factor(x: int, i: int, j: int) -> int:
-        return (x - j) / (i - j)
-
-    m = len(matrices)
-    if encode_by is None:
-        encode_by = list(range(m))
-
-    def _coefficient(x: int, i: int) -> int:
-        x = GF(x)
-        i = GF(i)
+    matrices: list[Array], encode_by: Iterable[int]
+) -> Callable[[int], FieldArray]:
+    def _coefficient(x: FieldArray, i: FieldArray) -> FieldArray:
         res = GF(1)
         for j in [GF(j) for j in encode_by]:
             if j != i:
                 res *= (x - j) / (i - j)
 
-        return res
+        return cast(FieldArray, res)
 
-    def polynomial(z: int) -> Array:
+    def polynomial(z: int) -> FieldArray:
         return reduce(
             lambda x, y: x + y,
-            [matrix * _coefficient(z, i) for i, matrix in zip(encode_by, matrices)],
+            [
+                matrix * _coefficient(GF(z), GF(i))
+                for i, matrix in zip(encode_by, matrices)
+            ],
         )
 
     return polynomial
