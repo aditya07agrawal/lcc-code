@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
     Array = np.ndarray
 
-GF = galois.GF(31)
+GF = galois.GF(88772077)
 
 
 @dataclass
